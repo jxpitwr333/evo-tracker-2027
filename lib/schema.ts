@@ -28,4 +28,5 @@ export const kanbanCard = pgTable('kanban_card', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
   deletedAt: timestamp('deleted_at'),
+  userId: integer('user_id').references(() => users.id, { onDelete:'cascade' }),
 });

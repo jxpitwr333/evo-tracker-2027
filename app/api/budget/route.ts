@@ -1,7 +1,7 @@
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { budget } from '@/lib/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 
 // GET all budget items for current user
 export async function GET() {
@@ -41,7 +41,12 @@ export async function DELETE(req: Request) {
 
   await db
     .delete(budget)
-    .where(eq(budget.id, id));
+    .where(
+      and(
+        eq(budget.id, id),
+        eq(budget.userId, Number(session.user.id))
+      )
+    );
 
   return Response.json({ success: true });
 }

@@ -1,7 +1,7 @@
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { kanbanCard } from '@/lib/schema';
-import { eq, isNull } from 'drizzle-orm';
+import { eq, isNull, and } from 'drizzle-orm';
 
 function serializeCard(c: typeof kanbanCard.$inferSelect) {
   return {
@@ -12,6 +12,7 @@ function serializeCard(c: typeof kanbanCard.$inferSelect) {
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
     deletedAt: c.deletedAt?.toISOString() ?? null,
+    userId: c.userId,
   };
 }
 
@@ -22,7 +23,12 @@ export async function GET() {
   const cards = await db
     .select()
     .from(kanbanCard)
-    .where(isNull(kanbanCard.deletedAt));
+    .where(
+        and(
+            isNull(kanbanCard.deletedAt),
+            eq(kanbanCard.userId, Number(session.user.id)),
+        )
+    );
 
   return Response.json(cards.map(serializeCard));
 }
@@ -35,7 +41,7 @@ export async function POST(req: Request) {
 
   const [card] = await db
     .insert(kanbanCard)
-    .values({ title, description, status: status ?? 'to-do' })
+    .values({ title, description, status: status ?? 'to-do', userId: Number(session.user.id) })
     .returning();
 
   return Response.json(serializeCard(card));
@@ -44,7 +50,7 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   const session = await auth();
   if (!session?.user?.id) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-
+    
   const { id, title, description, status } = await req.json();
 
   const [card] = await db
@@ -55,8 +61,15 @@ export async function PATCH(req: Request) {
       ...(status !== undefined && { status }),
       updatedAt: new Date(),
     })
-    .where(eq(kanbanCard.id, id))
+    .where(
+        and(
+            eq(kanbanCard.id, id),
+            eq(kanbanCard.userId, Number(session.user.id))
+        )
+    )
     .returning();
+
+  if (!card) return Response.json({ error: 'Not found' }, { status: 404 });
 
   return Response.json(serializeCard(card));
 }
@@ -70,7 +83,12 @@ export async function DELETE(req: Request) {
   await db
     .update(kanbanCard)
     .set({ deletedAt: new Date() })
-    .where(eq(kanbanCard.id, id));
+    .where(
+        and(
+            eq(kanbanCard.id, id),
+            eq(kanbanCard.userId, Number(session.user.id))
+        )
+    );
 
   return Response.json({ success: true });
 }

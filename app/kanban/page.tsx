@@ -1,7 +1,7 @@
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { kanbanCard } from '@/lib/schema';
-import { isNull } from 'drizzle-orm';
+import { eq, isNull, and } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { KanbanClient } from './KanbanClient';
@@ -13,7 +13,12 @@ export default async function KanbanPage() {
   const cards = await db
     .select()
     .from(kanbanCard)
-    .where(isNull(kanbanCard.deletedAt));
+    .where(
+      and(
+        isNull(kanbanCard.deletedAt),
+        eq(kanbanCard.userId, Number(session.user.id))
+      )
+    );
 
   const serialized = cards.map((c) => ({
     id: c.id,
